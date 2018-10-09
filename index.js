@@ -56,6 +56,10 @@ rtm.on("message", msg => {
   console.log(query);
   console.log(queryArray);
   console.log(commands[queryArray[0]]);
+  if (!commands[queryArray[0]]){
+      send(`I'm sorry <@${msg.user}>, that's not a valid command`, msg.channel);
+      return;
+  }
 
   commands[queryArray[0]].fn(msg);
 
