@@ -56,8 +56,9 @@ rtm.on("message", msg => {
   console.log(msg.text);
   console.log(query);
   console.log(queryArray);
+  console.log(commands[queryArray[0]]);
 
-  commands[queryArray[0]].fn();
+  commands[queryArray[0]].fn(msg);
 
 
   // if (hi.indexOf(msg.text) != -1 && msg.user == 'UB5FHHXPV') {
