@@ -53,21 +53,22 @@ rtm.on("message", msg => {
   }
     
   let queryArray = query[0].match(re1);
-
+  
   console.log(msg.text);
   console.log(query);
   console.log(queryArray);
   console.log(msg.channel);
-
   if (!queryArray){
       return;
   }
-  if (!commands[queryArray[0]]){
+
+  let queryCommand = queryArray.shift();
+  if (!commands[queryCommand]){
       send(`I'm sorry <@${msg.user}>, that's not a valid command`, msg.channel);
       return;
   }
 
-  commands[queryArray[0]].fn(msg);
+  commands[queryCommand].fn(msg, ...queryArray);
 });
 
 send = (info, channel) => {
