@@ -27,10 +27,10 @@ registerCommand = (msg) => {
             send(`You're already in my database <@${msg.user}>!`, msg.channel);
         } else {
             let arr = Array.from({length: 6}, () => Math.random());
+            let arr2 = [names[Math.floor(arr[0] * names.length)], 1, 0, Math.ceil(arr[1] * 10), Math.ceil(arr[2] * 10), Math.ceil(arr[3] * 10), Math.ceil(arr[4] * 10), Math.ceil(arr[5] * 10)];
+            newUser.run(msg.user, 0, 0, ...arr2, 1000);
     
-            newUser.run(msg.user, 0, 0, names[Math.floor(arr[0] * names.length)], 1, 0, Math.ceil(arr[1] * 10), Math.ceil(arr[2] * 10), Math.ceil(arr[3] * 10), Math.ceil(arr[4] * 10), Math.ceil(arr[5] * 10), 1000);
-    
-            send(`All set <@${msg.user}>!`, msg.channel);
+            send(`All set <@${msg.user}>! Your crab is named ${arr2[0]} and has ${arr2[3]} health, ${arr2[4]} strength, ${arr2[5]} defense, ${arr2[6]} dexterity, ${arr2[7]} speed! I've also set your ELO at 1000`, msg.channel);
         }
     })
     .catch(err => {
@@ -39,4 +39,10 @@ registerCommand = (msg) => {
     console.log(x);
 };
 
+helpCommand = (msg) => {
+    send(`Here are a list of my commands! \n *Register*: If you don't have a crab already, this will make one for you!`, msg.channel);
+    return;
+}
+
 exports.registerCommand = registerCommand;
+exports.helpCommand = helpCommand;
