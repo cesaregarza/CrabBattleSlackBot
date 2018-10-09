@@ -3,7 +3,7 @@ const {
   WebClient
 } = require("@slack/client");
 const CLIENT_EVENTS = require("@slack/client");
-const key = require("./keys");
+const key = require("./ignoreMe/keys");
 const rtm = new RTMClient(key.slackOAuth.botAccessToken);
 const admin = ['UB5D97MFD'];
 const re = new RegExp("(?<=(^!crabbattle)|(^!cb)|(^!crab)).+", "gi");
