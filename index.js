@@ -11,7 +11,6 @@ const re1 = new RegExp("[a-zA-Z\d]+", "gi");
 var sqlite3 = require('sqlite3').verbose();
 var db = new sqlite3.Database('slackbotDatabase.db');
 const fnx = require("./functions");
-const names = require("./names");
 db.serialize(()=>{
   db.run("CREATE TABLE IF NOT EXISTS USERS (id INTEGER PRIMARY KEY AUTOINCREMENT, slackID varchar(20), WINS SMALLINT, LOSSES SMALLINT, CRABNAME varchar(30), CRABLVL SMALLINT, CRABEXP INTEGER, CRABHPS SMALLINT, CRABSTR SMALLINT, CRABDEF SMALLINT, CRABDEX SMALLINT, CRABSPD SMALLINT, ELO INTEGER)");
 });
