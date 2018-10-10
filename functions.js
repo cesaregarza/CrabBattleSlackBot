@@ -1,11 +1,12 @@
 var sqlite3 = require('sqlite3').verbose();
 var db = new sqlite3.Database('slackbotDatabase.db');
-var newUser = db.prepare("INSERT INTO USERS (slackID, WINS, LOSSES, CRABNAME, CRABLVL, CRABEXP, CRABHPS, CRABSTR, CRABDEF, CRABDEX, CRABSPD, ELO, SKILLPOINTS) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
+var newUser = db.prepare("INSERT INTO USERS (slackID, WINS, LOSSES, CRABNAME, CRABLVL, CRABEXP, CRABHPS, CRABSTR, CRABDEF, CRABDEX, CRABSPD, ELO, SKILLPOINTS, GENERATION) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 2)");
 var checkIfUser = db.prepare("SELECT COUNT(1) FROM USERS WHERE slackID = ?");
 var getUser = db.prepare("SELECT * FROM USERS WHERE slackID = ?");
-//var updateLevel = db.prepare("UPDATE USERS SET (CRABLVL = CRABLVL + 1, CRABEXP = 0) WHERE  slackID = ?");
+var updateLevel = db.prepare("UPDATE USERS SET CRABLVL = CRABLVL + 1 WHERE  slackID = ?");
 const names = require("./names");
 
+//We'll define a new sqlite function that works as a promise. Because despite being a local database, db.get is still an async function. That is, it will not retrieve the value before the next line of code is executed. To prevent this, we establish it as a promise and give it a resolve and reject condition to allow for our callbacks to be put into a more appropriate form.
 db.getAsync = function (sql, param) {
     var that = this;
     return new Promise(function (resolve, reject) {
@@ -20,6 +21,7 @@ db.getAsync = function (sql, param) {
 
 registerCommand = (msg) => {
     let x;
+    //First we want to check if the user already exists in our database. We abuse the fact that 0 is falsey to then use it in an if-else statement. 
     db.getAsync(checkIfUser.sql, msg.user).then(row => {
         let y = "COUNT(1)";
         x = row[y];
@@ -42,7 +44,7 @@ registerCommand = (msg) => {
 };
 
 helpCommand = (msg) => {
-    send(`Here are a list of my commands! \n *Register*: If you don't have a crab already, this will make one for you!`, msg.channel);
+    send(`Here are a list of my commands! \n*Register*: If you don't have a crab already, this will make one for you!`, msg.channel);
     return;
 };
 
