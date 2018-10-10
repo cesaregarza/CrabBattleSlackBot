@@ -20,10 +20,9 @@ var checkIfUser = db.prepare("SELECT COUNT(1) FROM USERS WHERE slackID = ?");
 var getUser = db.prepare("SELECT * FROM USERS WHERE slackID = ?");
 
 class Command {
-    constructor(cmd, fn, options){
+    constructor(cmd, fn){
         this.cmd = cmd;
         this.fn = fn;
-        this.options = options;
     }
 }
 

@@ -24,7 +24,9 @@ registerCommand = (msg) => {
         x = row[y];
 
         if(x){
-            send(`You're already in my database <@${msg.user}>!`, msg.channel);
+            db.getAsync(getUser.sql, msg.user).then(rw => {
+                send(`You're already in my database <@${msg.user}>! Your crab is named ${rw.CRABNAME}, is level ${rw.CRABLVL} and has ${rw.CRABHPS} health, ${rw.CRABSTR} strength, ${rw.CRABDEF} defense, ${rw.CRABDEX} dexterity, and ${rw.CRABSPD} speed! Your crab has won ${rw.WINS} fights and has lost ${rw.LOSSES}. Your ELO is also ${rw.ELO}`, msg.channel);
+            });
         } else {
             let arr = Array.from({length: 6}, () => Math.random());
             let arr2 = [names[Math.floor(arr[0] * names.length)], 1, 0, Math.ceil(arr[1] * 10), Math.ceil(arr[2] * 10), Math.ceil(arr[3] * 10), Math.ceil(arr[4] * 10), Math.ceil(arr[5] * 10)];
@@ -36,12 +38,15 @@ registerCommand = (msg) => {
     .catch(err => {
         console.error(err);
     });
-    console.log(x);
 };
 
 helpCommand = (msg) => {
     send(`Here are a list of my commands! \n *Register*: If you don't have a crab already, this will make one for you!`, msg.channel);
     return;
+};
+
+showStats = (msg) => {
+    let x;
 }
 
 exports.registerCommand = registerCommand;
