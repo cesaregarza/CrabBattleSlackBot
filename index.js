@@ -28,6 +28,7 @@ class Command {
 const commands = {
     register: new Command("register", fnx.registerCommand),
     help: new Command("help", fnx.helpCommand),
+    update: new Command("update", fnx.updateCommand),
 
 };
 
