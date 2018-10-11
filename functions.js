@@ -58,13 +58,28 @@ registerCommand = (msg) => {
 };
 
 helpCommand = (msg) => {
-    send(`Here are a list of my commands! \n*Register*: If you don't have a crab already, this will make one for you!\n*Update*: If there's been an update, this will update your previous generation crab to the newest one`, msg.channel);
+    send(`Here are a list of my commands! \n*Register*: If you don't have a crab already, this will make one for you!\n*Update*: If there's been an update, this will update your previous generation crab to the newest one\n*Stats*: Show your crab's stats!`, msg.channel);
     return;
 };
 
-showStats = (msg) => {
-    let x;
-}
+showStatsCommand = (msg) => {
+    db.getAsync(checkIfUser.sql, msg.user).then(row => {
+        let y = "COUNT(1)";
+        if(row[y]){
+            db.getAsync(getUser.sql, msg.user).then(rw => {
+                send(`Your crab, ${rw.CRABNAME}, is level ${rw.CRABLVL} with ${rw.CRABEXP ? rw.CRABEXP : "no"} experience and has ${rw.CRABHPS} health, ${rw.CRABSTR} strength, ${rw.CRABDEF} defense, ${rw.CRABDEX} dexterity, and ${rw.CRABSPD} speed! Your crab has won ${rw.WINS} fights and has lost ${rw.LOSSES}. Your ELO is also ${rw.ELO}`, msg.channel)})
+                .catch(er => {
+                    console.error(er);
+                });
+        } else {
+            send(`You don't have a crab! Let me make one for you`, msg.channel);
+            registerCommand(msg);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+    });
+};
 
 updateCommand = (msg) => {
     let x;
@@ -76,7 +91,8 @@ updateCommand = (msg) => {
             db.getAsync(checkIfUser.sql, msg.user).then(rw => {
                 if (rw[y]){
                     db.getAsync(getUser.sql, msg.user).then(roww => {
-                        send(`Your crab, ${roww.CRABNAME}, is out of date! Their generation is ${roww.GENERATION} when the newest generation is ${currgen}`, msg.channel);
+                        send(`Your crab, ${roww.CRABNAME}, is out of date! Their generation is ${roww.GENERATION} when the newest generation is ${currgen}\nUpdating your crab`, msg.channel);
+                        updateCrab(roww);
                     });
                 } else {
                     send(`You're not registered! Here, let me make a crab for you`, msg.channel);
@@ -92,12 +108,17 @@ updateCommand = (msg) => {
     });
 };
 
+updateCrab = (userObj) => {
+
+};
+
 experience = (currentLevel, currentExperience) => {
     if (currentExperience > ((currentLevel + 1) ** 3)) {
 
     }
-}
+};
 
 exports.registerCommand = registerCommand;
 exports.helpCommand = helpCommand;
 exports.updateCommand = updateCommand;
+exports.showStatsCommand = showStatsCommand;
