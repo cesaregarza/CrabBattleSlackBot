@@ -33,28 +33,40 @@ shuffle = ([...arr]) => {
     return arr;
   };
 
-registerCommand = (msg) => {
-    let x;
-    //First we want to check if the user already exists in our database. We abuse the fact that 0 is falsey to then use it in an if-else statement. 
-    db.getAsync(checkIfUser.sql, msg.user).then(row => {
+checkIfUserandExecute = (userID, fnSuccess, optionsSuccessArray, fnFailure, optionsFailureArray) => {
+    //First we want to check if the user already exists in our database. We abuse the fact that 0 is falsey to then use it in an if-else statement.
+    db.getAsync(checkIfUser.sql, userID).then(row => {
         let y = "COUNT(1)";
-        x = row[y];
-
-        if(x){
-            db.getAsync(getUser.sql, msg.user).then(rw => {
-                send(`You're already in my database <@${msg.user}>! Your crab is named ${rw.CRABNAME}, is level ${rw.CRABLVL} and has ${rw.CRABHPS} health, ${rw.CRABSTR} strength, ${rw.CRABDEF} defense, ${rw.CRABDEX} dexterity, and ${rw.CRABSPD} speed! Your crab has won ${rw.WINS} fights and has lost ${rw.LOSSES}. Your ELO is also ${rw.ELO}`, msg.channel);
+        if (row[y]){
+            db.getAsync(getUser.sql, userID).then(rw => {
+                fnSuccess(rw, ...optionsSuccessArray);
+            }).catch(er => {
+                console.error(er);
             });
         } else {
-            let arr = shuffle(initialStats);
-            let arr1 = [names[Math.floor(Math.random() * names.length)], 1, 0, ...arr];
-            newUser.run(msg.user, 0, 0, ...arr1, 1000, 0);
-    
-            send(`All set <@${msg.user}>! Your crab is named ${arr1[0]} and has ${arr1[3]} health, ${arr1[4]} strength, ${arr1[5]} defense, ${arr1[6]} dexterity, ${arr1[7]} speed! I've also set your ELO at 1000`, msg.channel);
+            fnFailure(row, ...optionsFailureArray);
         }
     })
     .catch(err => {
         console.error(err);
     });
+};
+
+registerCommand = (msg) => {
+    let fnSuccess = (user) => {
+        send(`You're already in my database <@${msg.user}>! Your crab is named ${user.CRABNAME}, is level ${user.CRABLVL} and has ${user.CRABHPS} health, ${user.CRABSTR} strength, ${user.CRABDEF} defense, ${user.CRABDEX} dexterity, and ${user.CRABSPD} speed! Your crab has won ${user.WINS} fights and has lost ${user.LOSSES}. Your ELO is also ${user.ELO}`, msg.channel);
+    };
+
+    let fnFailure = () => {
+        let arr = shuffle(initialStats);
+        let arr1 = [names[Math.floor(Math.random() * names.length)], 1, 0, ...arr];
+        newUser.run(msg.user, 0, 0, ...arr1, 1000, 0);
+    
+        send(`All set <@${msg.user}>! Your crab is named ${arr1[0]} and has ${arr1[3]} health, ${arr1[4]} strength, ${arr1[5]} defense, ${arr1[6]} dexterity, ${arr1[7]} speed! I've also set your ELO at 1000`, msg.channel);
+    };
+
+    checkIfUserandExecute(msg.user, fnSuccess, [""], fnFailure, [""]);
+    
 };
 
 helpCommand = (msg) => {
@@ -63,42 +75,36 @@ helpCommand = (msg) => {
 };
 
 showStatsCommand = (msg) => {
-    db.getAsync(checkIfUser.sql, msg.user).then(row => {
-        let y = "COUNT(1)";
-        if(row[y]){
-            db.getAsync(getUser.sql, msg.user).then(rw => {
-                send(`Your crab, ${rw.CRABNAME}, is level ${rw.CRABLVL} with ${rw.CRABEXP ? rw.CRABEXP : "no"} experience and has ${rw.CRABHPS} health, ${rw.CRABSTR} strength, ${rw.CRABDEF} defense, ${rw.CRABDEX} dexterity, and ${rw.CRABSPD} speed! Your crab has won ${rw.WINS} fights and has lost ${rw.LOSSES}. Your ELO is also ${rw.ELO}`, msg.channel)})
-                .catch(er => {
-                    console.error(er);
-                });
-        } else {
-            send(`You don't have a crab! Let me make one for you`, msg.channel);
-            registerCommand(msg);
-        }
-    })
-    .catch(err => {
-        console.error(err);
-    });
+
+    fnSuccess = (user) => {
+        send(`Your crab, ${user.CRABNAME}, is level ${user.CRABLVL} with ${user.CRABEXP ? user.CRABEXP : "no"} experience and has ${user.CRABHPS} health, ${user.CRABSTR} strength, ${user.CRABDEF} defense, ${user.CRABDEX} dexterity, and ${user.CRABSPD} speed! Your crab has won ${user.WINS} fights and has lost ${user.LOSSES}. Your ELO is also ${user.ELO}`, msg.channel);
+    };
+
+    fnFailure = () => {
+        send(`You don't have a crab! Let me make one for you`, msg.channel);
+        registerCommand(msg);
+    };
+
+    checkIfUserandExecute(msg.user, fnSuccess, [""], fnFailure, [""]);
 };
 
 updateCommand = (msg) => {
-    let x;
+
+    fnSuccess = (user) => {
+        send(`Your crab, ${user.CRABNAME}, is out of date! Their generation is ${user.GENERATION} when the newest generation is ${currgen}\nUpdating your crab`, msg.channel);
+        updateCrab(user);
+    };
+    
+    fnFailure = () => {
+        send(`You're not registered! Here, let me make a crab for you`, msg.channel);
+        registerCommand(msg);
+    };
 
     db.getAsync(checkIfUpdate.sql, msg.user).then(row => {
         let y = "COUNT(1)";
 
         if(!row[y]){
-            db.getAsync(checkIfUser.sql, msg.user).then(rw => {
-                if (rw[y]){
-                    db.getAsync(getUser.sql, msg.user).then(roww => {
-                        send(`Your crab, ${roww.CRABNAME}, is out of date! Their generation is ${roww.GENERATION} when the newest generation is ${currgen}\nUpdating your crab`, msg.channel);
-                        updateCrab(roww);
-                    });
-                } else {
-                    send(`You're not registered! Here, let me make a crab for you`, msg.channel);
-                    registerCommand(msg);
-                }
-            });
+            checkIfUserandExecute(msg.user, fnSuccess, [""], fnFailure, [""]);
         } else {
             send(`Your crab is the most current generation`, msg.channel);
         }
@@ -110,6 +116,18 @@ updateCommand = (msg) => {
 
 updateCrab = (userObj) => {
 
+};
+
+battleCrabCommand = (msg, user2ID) => {
+    let user1, user2;
+    db.getAsync(checkIfUser.sql, msg.user).then(row => {
+        let y = "COUNT(1)";
+        if (row[y]){
+            db.getAsync(getUser.sql, msg.user).then(rw => {
+
+            })
+        }
+    })
 };
 
 experience = (currentLevel, currentExperience) => {
