@@ -8,8 +8,21 @@ var updateLevel = db.prepare("UPDATE USERS SET CRABLVL = CRABLVL + 1 WHERE  slac
 var checkIfUpdate = db.prepare(`SELECT COUNT(1) FROM USERS WHERE slackID = UPPER(?) AND GENERATION=${currgen}`);
 const names = require("./names");
 
+//used for verifying if slackID is valid
+const re = new RegExp("(?<=^ub[0-9])[a-zA-Z0-9]{6}$", "gi");
 
+//Crab's initial stat distribution
 const initialStats = [10, 7, 6, 5, 3];
+//Logic Functions that might or might not be useful later;
+const NAND = (a, b) => {
+    return !(a && b);
+};
+const XOR = (a, b) => {
+    return (a && !b) || (!a && b);
+};
+const NOR = (a, b) => {
+    return !(a || b);
+};
 
 //We'll define a new sqlite function that works as a promise. Because despite being a local database, db.get is still an async function. That is, it will not retrieve the value before the next line of code is executed. To prevent this, we establish it as a promise and give it a resolve and reject condition to allow for our callbacks to be put into a more appropriate form.
 db.getAsync = function (sql, param) {
@@ -51,6 +64,13 @@ checkIfUserAndExecutePromise = function (userID) {
             console.error(err);
         });
     });
+};
+
+checkIfValidID = (suspectedID) => {
+    if (!suspectedID) return false;
+    if (typeof suspectedID != "string") return false;
+    
+    return suspectedID.match(re);
 };
 
 registerCommand = (msg) => {
@@ -113,29 +133,24 @@ updateCrab = (userObj) => {
 };
 
 battleCrabCommand = (msg, user2ID) => {
-    // fnSuccess = (user) => {
-    //     return user;
-    // };
-    // fnFailure = (user) => {
-    //     return false;
-    // };
+    if (!checkIfValidID(user2ID)){
+        send(`I'm sorry, ${user2ID} is not a valid slack ID`, msg.channel);
+        return;
+    }
 
     Promise.all([checkIfUserAndExecutePromise(msg.user).catch(result => {return result;}), checkIfUserAndExecutePromise(user2ID).catch(result => {return result;})])
     .then(results => {
-        console.log(results);
 
-        let both = (!results[0]) && (!results[1]);
-        console.log(both);
-        console.log(`!user1: ${!results[0]}  !user2: ${!results[1]}`);
+        let both = NOR(...results);
 
-        if (!(results[0] && results[1])) {
-          send(`I'm sorry, <@${msg.user}>,${both ? ' neither' : ''} ${!results[0] ? 'you' : ''}${both ? ' nor' : ''} ${!results[1] ? "<@" + user2ID + ">" : ''} ${results[1] || both ? 'are':'is not'} registered`, msg.channel);
+        if (NAND(...results)) {
+          send(`I'm sorry, <@${msg.user}>,${both ? ' neither' : ''} ${!results[0] ? 'you' : ''}${both ? ' nor' : ''} ${!results[1] ? '<@' + user2ID.toUpperCase() + '>' : ''} ${results[1] || both ? 'are':'is not'} registered`, msg.channel);
         } else {
           send(`Battle would be successful`, msg.channel);
         }
     })
-    .catch(result => {
-        console.log(result);
+    .catch(err => {
+        console.error(err);
     });
 };
 
