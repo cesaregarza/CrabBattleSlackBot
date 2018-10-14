@@ -2,10 +2,10 @@ var sqlite3 = require('sqlite3').verbose();
 const currgen=3;
 var db = new sqlite3.Database('slackbotDatabase.db');
 var newUser = db.prepare(`INSERT INTO USERS (slackID, WINS, LOSSES, CRABNAME, CRABLVL, CRABEXP, CRABHPS, CRABSTR, CRABDEF, CRABDEX, CRABSPD, ELO, SKILLPOINTS, GENERATION) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, ${currgen})`);
-var checkIfUser = db.prepare("SELECT COUNT(1) FROM USERS WHERE slackID = ?");
-var getUser = db.prepare("SELECT * FROM USERS WHERE slackID = ?");
-var updateLevel = db.prepare("UPDATE USERS SET CRABLVL = CRABLVL + 1 WHERE  slackID = ?");
-var checkIfUpdate = db.prepare(`SELECT COUNT(1) FROM USERS WHERE slackID = ? AND GENERATION=${currgen}`);
+var checkIfUser = db.prepare("SELECT COUNT(1) FROM USERS WHERE slackID = UPPER(?)");
+var getUser = db.prepare("SELECT * FROM USERS WHERE slackID = UPPER(?)");
+var updateLevel = db.prepare("UPDATE USERS SET CRABLVL = CRABLVL + 1 WHERE  slackID = UPPER(?)");
+var checkIfUpdate = db.prepare(`SELECT COUNT(1) FROM USERS WHERE slackID = UPPER(?) AND GENERATION=${currgen}`);
 const names = require("./names");
 
 
@@ -33,39 +33,37 @@ shuffle = ([...arr]) => {
     return arr;
   };
 
-checkIfUserandExecute = (userID, fnSuccess, optionsSuccessArray, fnFailure, optionsFailureArray) => {
-    //First we want to check if the user already exists in our database. We abuse the fact that 0 is falsey to then use it in an if-else statement.
-    db.getAsync(checkIfUser.sql, userID).then(row => {
-        let y = "COUNT(1)";
-        if (row[y]){
-            db.getAsync(getUser.sql, userID).then(rw => {
-                fnSuccess(rw, ...optionsSuccessArray);
-            }).catch(er => {
-                console.error(er);
-            });
-        } else {
-            fnFailure(row, ...optionsFailureArray);
-        }
-    })
-    .catch(err => {
-        console.error(err);
+checkIfUserAndExecutePromise = function (userID) {
+    return new Promise (function(resolve, reject) {
+        db.getAsync(checkIfUser.sql, userID).then(row => {
+            let y = "COUNT(1)";
+            if (row[y]) {
+                db.getAsync(getUser.sql, userID).then(rw => {
+                    resolve(rw);
+                }).catch(err => {
+                    console.error(err);
+                });
+            } else {
+                reject(false);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+        });
     });
 };
 
 registerCommand = (msg) => {
-    let fnSuccess = (user) => {
+    checkIfUserAndExecutePromise(msg.user).then(user => {
         send(`You're already in my database <@${msg.user}>! Your crab is named ${user.CRABNAME}, is level ${user.CRABLVL} and has ${user.CRABHPS} health, ${user.CRABSTR} strength, ${user.CRABDEF} defense, ${user.CRABDEX} dexterity, and ${user.CRABSPD} speed! Your crab has won ${user.WINS} fights and has lost ${user.LOSSES}. Your ELO is also ${user.ELO}`, msg.channel);
-    };
-
-    let fnFailure = () => {
+    })
+    .catch(result => {
         let arr = shuffle(initialStats);
         let arr1 = [names[Math.floor(Math.random() * names.length)], 1, 0, ...arr];
         newUser.run(msg.user, 0, 0, ...arr1, 1000, 0);
     
         send(`All set <@${msg.user}>! Your crab is named ${arr1[0]} and has ${arr1[3]} health, ${arr1[4]} strength, ${arr1[5]} defense, ${arr1[6]} dexterity, ${arr1[7]} speed! I've also set your ELO at 1000`, msg.channel);
-    };
-
-    checkIfUserandExecute(msg.user, fnSuccess, [""], fnFailure, [""]);
+    });
     
 };
 
@@ -76,35 +74,31 @@ helpCommand = (msg) => {
 
 showStatsCommand = (msg) => {
 
-    fnSuccess = (user) => {
+    checkIfUserAndExecutePromise(msg.user)
+    .then(user => {
         send(`Your crab, ${user.CRABNAME}, is level ${user.CRABLVL} with ${user.CRABEXP ? user.CRABEXP : "no"} experience and has ${user.CRABHPS} health, ${user.CRABSTR} strength, ${user.CRABDEF} defense, ${user.CRABDEX} dexterity, and ${user.CRABSPD} speed! Your crab has won ${user.WINS} fights and has lost ${user.LOSSES}. Your ELO is also ${user.ELO}`, msg.channel);
-    };
-
-    fnFailure = () => {
+    })
+    .catch(result => {
         send(`You don't have a crab! Let me make one for you`, msg.channel);
         registerCommand(msg);
-    };
-
-    checkIfUserandExecute(msg.user, fnSuccess, [""], fnFailure, [""]);
+    });
 };
 
 updateCommand = (msg) => {
-
-    fnSuccess = (user) => {
-        send(`Your crab, ${user.CRABNAME}, is out of date! Their generation is ${user.GENERATION} when the newest generation is ${currgen}\nUpdating your crab`, msg.channel);
-        updateCrab(user);
-    };
-    
-    fnFailure = () => {
-        send(`You're not registered! Here, let me make a crab for you`, msg.channel);
-        registerCommand(msg);
-    };
 
     db.getAsync(checkIfUpdate.sql, msg.user).then(row => {
         let y = "COUNT(1)";
 
         if(!row[y]){
-            checkIfUserandExecute(msg.user, fnSuccess, [""], fnFailure, [""]);
+            checkIfUserAndExecutePromise(msg.user)
+            .then(user => {
+                send(`Your crab, ${user.CRABNAME}, is out of date! Their generation is ${user.GENERATION} when the newest generation is ${currgen}\nUpdating your crab`, msg.channel);
+                updateCrab(user);
+            })
+            .catch(result => {
+                send(`You're not registered! Here, let me make a crab for you`, msg.channel);
+                registerCommand(msg);
+            });
         } else {
             send(`Your crab is the most current generation`, msg.channel);
         }
@@ -119,15 +113,30 @@ updateCrab = (userObj) => {
 };
 
 battleCrabCommand = (msg, user2ID) => {
-    let user1, user2;
-    db.getAsync(checkIfUser.sql, msg.user).then(row => {
-        let y = "COUNT(1)";
-        if (row[y]){
-            db.getAsync(getUser.sql, msg.user).then(rw => {
+    // fnSuccess = (user) => {
+    //     return user;
+    // };
+    // fnFailure = (user) => {
+    //     return false;
+    // };
 
-            })
+    Promise.all([checkIfUserAndExecutePromise(msg.user).catch(result => {return result;}), checkIfUserAndExecutePromise(user2ID).catch(result => {return result;})])
+    .then(results => {
+        console.log(results);
+
+        let both = (!results[0]) && (!results[1]);
+        console.log(both);
+        console.log(`!user1: ${!results[0]}  !user2: ${!results[1]}`);
+
+        if (!(results[0] && results[1])) {
+          send(`I'm sorry, <@${msg.user}>,${both ? ' neither' : ''} ${!results[0] ? 'you' : ''}${both ? ' nor' : ''} ${!results[1] ? "<@" + user2ID + ">" : ''} ${results[1] || both ? 'are':'is not'} registered`, msg.channel);
+        } else {
+          send(`Battle would be successful`, msg.channel);
         }
     })
+    .catch(result => {
+        console.log(result);
+    });
 };
 
 experience = (currentLevel, currentExperience) => {
@@ -140,3 +149,4 @@ exports.registerCommand = registerCommand;
 exports.helpCommand = helpCommand;
 exports.updateCommand = updateCommand;
 exports.showStatsCommand = showStatsCommand;
+exports.battleCrabCommand = battleCrabCommand;

@@ -30,7 +30,8 @@ const commands = {
     help: new Command("help", fnx.helpCommand),
     update: new Command("update", fnx.updateCommand),
     stats: new Command("stats", fnx.showStatsCommand),
-
+    battle: new Command("battle", fnx.battleCrabCommand),
+    
 };
 
 //start up the interaction with Slack's RTM API
