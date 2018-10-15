@@ -14,7 +14,7 @@ var db = new sqlite3.Database('slackbotDatabase.db');
 const fnx = require("./functions");
 //establish the database
 db.serialize(()=>{
-  db.run("CREATE TABLE IF NOT EXISTS USERS (id INTEGER PRIMARY KEY AUTOINCREMENT, slackID varchar(20), WINS SMALLINT, LOSSES SMALLINT, CRABNAME varchar(30), CRABLVL SMALLINT, CRABEXP INTEGER, CRABHPS SMALLINT, CRABSTR SMALLINT, CRABDEF SMALLINT, CRABDEX SMALLINT, CRABSPD SMALLINT, ELO INTEGER, SKILLPOINTS SMALLINT, GENERATION SMALLINT)");
+  db.run("CREATE TABLE IF NOT EXISTS USERS (id INTEGER PRIMARY KEY AUTOINCREMENT, slackID varchar(20), WINS SMALLINT, LOSSES SMALLINT, CRABNAME varchar(30), CRABLVL SMALLINT, CRABEXP INTEGER, CRABHPS SMALLINT, CRABSTR SMALLINT, CRABDEF SMALLINT, CRABDEX SMALLINT, CRABSPD SMALLINT, CRABNATURE VARCHAR(30), ELO INTEGER, SKILLPOINTS SMALLINT, GENERATION SMALLINT)");
 });
 
 class Command {
@@ -31,7 +31,7 @@ const commands = {
     update: new Command("update", fnx.updateCommand),
     stats: new Command("stats", fnx.showStatsCommand),
     battle: new Command("battle", fnx.battleCrabCommand),
-    
+
 };
 
 //start up the interaction with Slack's RTM API
