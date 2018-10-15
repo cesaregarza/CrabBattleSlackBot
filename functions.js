@@ -14,14 +14,31 @@ const re = new RegExp("(?<=^ub[0-9])[a-zA-Z0-9]{6}$", "gi");
 //Crab's initial stat distribution
 const initialStats = [10, 7, 6, 5, 3];
 //Logic Functions that might or might not be useful later;
-const NAND = (a, b) => {
-    return !(a && b);
+const logic = {
+    NAND: (a, b) => {
+        return !(a && b);
+    },
+    XOR: (a, b) => {
+        return (a && !b) || (!a && b);
+    },
+    NOR: (a, b) => {
+        return !(a || b);
+    },
 };
-const XOR = (a, b) => {
-    return (a && !b) || (!a && b);
-};
-const NOR = (a, b) => {
-    return !(a || b);
+
+const mLogic = {
+    //Returns true if all are true. Revert to find if at least one is false
+    AND: (Arr) => {
+        return Arr.reduce((a, b) => a && b, true);
+    },
+    //Returns true if at least one is true. Revert to find if all are false
+    OR: (Arr) => {
+        return Arr.reduce((a, b) => a || b, false);
+    },
+    //Returns true if all elements are equal
+    equals: (Arr) => {
+      return Arr.every(a => a==Arr[0]);
+    }
 };
 
 //We'll define a new sqlite function that works as a promise. Because despite being a local database, db.get is still an async function. That is, it will not retrieve the value before the next line of code is executed. To prevent this, we establish it as a promise and give it a resolve and reject condition to allow for our callbacks to be put into a more appropriate form.
@@ -134,24 +151,58 @@ updateCrab = (userObj) => {
 
 battleCrabCommand = (msg, user2ID) => {
     if (!checkIfValidID(user2ID)){
-        send(`I'm sorry, ${user2ID} is not a valid slack ID`, msg.channel);
+        send(`I'm sorry, ${user2ID} is not a valid user slack ID`, msg.channel);
         return;
     }
 
     Promise.all([checkIfUserAndExecutePromise(msg.user).catch(result => {return result;}), checkIfUserAndExecutePromise(user2ID).catch(result => {return result;})])
     .then(results => {
 
-        let both = NOR(...results);
+        let both = logic.NOR(...results);
 
-        if (NAND(...results)) {
+        if (logic.NAND(...results)) {
           send(`I'm sorry, <@${msg.user}>,${both ? ' neither' : ''} ${!results[0] ? 'you' : ''}${both ? ' nor' : ''} ${!results[1] ? '<@' + user2ID.toUpperCase() + '>' : ''} ${results[1] || both ? 'are':'is not'} registered`, msg.channel);
         } else {
+          //battleCrabs(results);
           send(`Battle would be successful`, msg.channel);
         }
     })
     .catch(err => {
         console.error(err);
     });
+};
+
+battleCrabs = (arr) => {
+    let flip = Math.random();
+    let first, second;
+
+    if (arr[0].CRABSPD > arr[1].CRABSPD){
+        first = arr[0];
+        second = arr[1];
+    } else if (arr[0].CRABSPD > arr[1].CRABSPD){
+        first = arr[1];
+        second = arr[0];
+    } else {
+        first = arr[Math.floor(flip*2)];
+        second = arr[(Math.floor(flip*2)+1)%2];
+    }
+
+    [first, second] = damagePhase(first, second);
+};
+
+damagePhase = (attacker, defender) => {
+    acc = accuracy(attacker.CRABDEX);
+    if (acc >= Math.random()){
+        //hit goes through
+
+    } else {
+        //miss
+        return [attacker, defender];
+    }
+};
+
+accuracy = (dex) => {
+    return (Math.atan((dex - 15)/5)*(1/(Math.PI * 2))+0.75);
 };
 
 experience = (currentLevel, currentExperience) => {
