@@ -31,6 +31,7 @@ const commands = {
     update: new Command("update", fnx.updateCommand),
     stats: new Command("stats", fnx.showStatsCommand),
     battle: new Command("battle", fnx.battleCrabCommand),
+    fight: new Command("fight", fnx.battleCrabCommand),
 
 };
 

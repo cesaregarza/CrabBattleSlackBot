@@ -9,6 +9,8 @@ var checkIfUpdate = db.prepare(`SELECT COUNT(1) FROM USERS WHERE slackID = UPPER
 var updateStuff = (Arr) => {
     return db.prepare(`UPDATE USERS SET ${sqlOutput(Arr)} WHERE slackID=?`);
 };
+
+//Import supplementary files
 const names = require("./names");
 const accCurves = require("./accuracyCurves");
 const npc = require("./npcs");
@@ -33,7 +35,7 @@ const logic = {
         return !(a || b);
     },
 };
-
+//Logic functions that apply to arrays
 const mLogic = {
     //Returns true if all are true. Revert to find if at least one is false
     AND: (Arr) => {
@@ -49,6 +51,7 @@ const mLogic = {
     },
 };
 
+//Takes in a 2D array and creates an SQL string to output
 var sqlOutput = (Arr) => {
   let p = "";
   while (Arr.length > 1) {
@@ -72,6 +75,7 @@ db.getAsync = function (sql, param) {
     });
 };
 
+//Shuffles values in an array and outputs a copy of the array without affecting the original
 shuffle = ([...arr]) => {
     let x = arr.length;
     while (x) {
@@ -79,8 +83,9 @@ shuffle = ([...arr]) => {
       [arr[x], arr[i]] = [arr[i], arr[x]];
     }
     return arr;
-  };
+};
 
+//Used to check if a user exists, then execute a code in a promise using .then. It will issue a rejection if it fails.
 checkIfUserAndExecutePromise = function (userID) {
     return new Promise (function(resolve, reject) {
         db.getAsync(checkIfUser.sql, userID).then(row => {
@@ -101,6 +106,7 @@ checkIfUserAndExecutePromise = function (userID) {
     });
 };
 
+//Checks if a slackID is valid or not.
 checkIfValidID = (suspectedID) => {
     if (!suspectedID) return false;
     if (typeof suspectedID != "string") return false;
@@ -128,7 +134,6 @@ helpCommand = (msg) => {
 };
 
 showStatsCommand = (msg) => {
-
     checkIfUserAndExecutePromise(msg.user)
     .then(user => {
         send(`Your crab, ${user.CRABNAME}, is level ${user.CRABLVL} with ${user.CRABEXP ? user.CRABEXP : "no"} experience and has ${user.CRABHPS} health, ${user.CRABSTR} strength, ${user.CRABDEF} defense, ${user.CRABDEX} dexterity, and ${user.CRABSPD} speed! Your crab is ${user.CRABNATURE}, has won ${user.WINS} fights and has lost ${user.LOSSES}. Your ELO is also ${user.ELO}`, msg.channel);
@@ -140,7 +145,6 @@ showStatsCommand = (msg) => {
 };
 
 updateCommand = (msg) => {
-
     db.getAsync(checkIfUpdate.sql, msg.user).then(row => {
         let y = "COUNT(1)";
 
@@ -298,22 +302,22 @@ experiencePhase = (msg, winner, loser) => {
     }
     updateStuff(updateArray).run(winner.slackID);
 };
-
+//uses the accuracy curves to find the accuracy of a hit
 accuracy = (dex, nature) => {
     return accCurves[nature][dex];
 };
-
+//Uses the formula below to find the damage dealt
 damage = (attack, defense) => {
     return (((attack/2.5) ** 2) / defense)+1;
 };
-
+//Calculates XP gained
 experienceGain = (winner, loser) => {
     let winstats = totalStats(winner);
     let losestats = totalStats(loser);
 
     return Math.floor(losestats/winstats * 8);
 };
-
+//Finds total number of stats in the given crab
 totalStats = (crab) => {
     return [...statNames].reduce((a, b) => a+crab[b], 0);
 };
