@@ -11,6 +11,8 @@ var updateStuff = (Arr) => {
 };
 const names = require("./names");
 const accCurves = require("./accuracyCurves");
+const npc = require("./npcs");
+const npcList = ["baby", "easy", "medium", "hard", "boss", "superboss", "hyperboss"];
 
 //used for verifying if slackID is valid
 const re = new RegExp("(?<=^ub[0-9])[a-zA-Z0-9]{6}$", "gi");
@@ -191,7 +193,10 @@ updateCrab = (userObj) => {
 };
 
 battleCrabCommand = (msg, user2ID) => {
-    if (!checkIfValidID(user2ID)){
+    var botCrab = "";
+    if (npcList.includes(user2ID)){
+        botCrab = npc[user2ID];
+    } else if (!checkIfValidID(user2ID)){
         send(`I'm sorry, ${user2ID} is not a valid user slack ID`, msg.channel);
         return;
     }
@@ -205,7 +210,7 @@ battleCrabCommand = (msg, user2ID) => {
 
     .then(results => {
         let y = "COUNT(1)";
-        if (!results[0][y] || !results[1][y]){
+        if ((!results[0][y] || !results[1][y])&&!botCrab){
             send(`I'm sorry, both participants need to have updated crabs to battle`, msg.channel);
             throw "One not updated";
         }
@@ -214,20 +219,28 @@ battleCrabCommand = (msg, user2ID) => {
     .then(() => Promise.all([checkIfUserAndExecutePromise(msg.user).catch(result => {return result;}), checkIfUserAndExecutePromise(user2ID).catch(result => {return result;})]))
 
     .then(results => {
-
         let both = logic.NOR(...results);
 
-        if (logic.NAND(...results)) {
+        if (logic.NAND(...results) && !botCrab) {
           send(`I'm sorry, <@${msg.user}>,${both ? ' neither' : ''} ${!results[0] ? 'you' : ''}${both ? ' nor' : ''} ${!results[1] ? '<@' + user2ID.toUpperCase() + '>' : ''} ${results[1] || both ? 'are':'is not'} registered`, msg.channel);
         } else {
-          let winner = battleCrabs(results);
-          send(`Battle would be successful, <@${winner.slackID}> wins`, msg.channel);
+            let winner, loser;
+            if (botCrab){
+                [winner, loser] = battleCrabs(msg, [results[0], botCrab]);
+            } else {
+                 [winner, loser] = battleCrabs(msg, results);
+            }
+            send(`Battle successful, ${winner.slackID ? "<@" : ""}${winner.slackID ? winner.slackID : winner.CRABNAME}${winner.slackID ? ">" : ""} wins`, msg.channel);
+            if (winner.slackID) {
+                experiencePhase(msg, winner, loser);
+                return;
+            }
         }
     })
     .catch(err => console.error(err));
 };
 
-battleCrabs = (arr) => {
+battleCrabs = (msg, arr) => {
     let first, second;
     do{
       let flip = Math.random();
@@ -235,7 +248,7 @@ battleCrabs = (arr) => {
       if (arr[0].CRABSPD > arr[1].CRABSPD) {
         first = arr[0];
         second = arr[1];
-      } else if (arr[0].CRABSPD > arr[1].CRABSPD) {
+      } else if (arr[0].CRABSPD < arr[1].CRABSPD) {
         first = arr[1];
         second = arr[0];
       } else {
@@ -243,28 +256,47 @@ battleCrabs = (arr) => {
         second = arr[(Math.floor(flip * 2) + 1) % 2];
       }
 
-      [first, second] = damagePhase(first, second);
+      [first, second] = damagePhase(msg, first, second);
       if (second.CRABHPS <= 0) {
-        return first;
+        return [first, second];
       }
-      [second, first] = damagePhase(second, first);
+      [second, first] = damagePhase(msg, second, first);
       if (first.CRABHPS <= 0) {
-        return second;
+        return [first, second];
       }
     } while(first.CRABHPS > 0 && second.CRABHPS >0);
 };
 
-damagePhase = (attacker, defender) => {
+damagePhase = (msg, attacker, defender) => {
     acc = accuracy(attacker.CRABDEX, attacker.CRABNATURE);
     dmg = (damage(attacker.CRABSTR, defender.CRABDEF));
 
     if (acc >= Math.random()){
         //hit goes through
         defender.CRABHPS -= dmg;
-        console.log(`HIT! ${attacker.CRABNAME} deals ${dmg} damage!`);
+        send(`HIT! ${attacker.CRABNAME} deals ${dmg} damage!`, msg.channel);
+    } else {
+        send(`${attacker.CRABNAME} misses! Ouch!`, msg.channel);
     }
 
     return [attacker, defender];
+};
+
+experiencePhase = (msg, winner, loser) => {
+    let xp = experienceGain(winner, loser);
+    if (xp + winner.CRABEXP >= (winner.CRABLVL + 1) ** 3){
+        send(`LEVEL UP!`, msg.channel);
+        updateArray = [
+            ["CRABLVL", winner.CRABLVL + 1],
+            ["CRABEXP", winner.CRABEXP+xp-((winner.CRABLVL+1) ** 3)],
+            ["SKILLPOINTS", 5]
+        ];
+    } else {
+        updateArray = [
+            ["CRABEXP", winner.CRABEXP + xp]
+        ];
+    }
+    updateStuff(updateArray).run(winner.slackID);
 };
 
 accuracy = (dex, nature) => {
@@ -275,10 +307,15 @@ damage = (attack, defense) => {
     return (((attack/2.5) ** 2) / defense)+1;
 };
 
-experience = (currentLevel, currentExperience) => {
-    if (currentExperience > ((currentLevel + 1) ** 3)) {
+experienceGain = (winner, loser) => {
+    let winstats = totalStats(winner);
+    let losestats = totalStats(loser);
 
-    }
+    return Math.floor(losestats/winstats * 8);
+};
+
+totalStats = (crab) => {
+    return [...statNames].reduce((a, b) => a+crab[b], 0);
 };
 
 exports.registerCommand = registerCommand;
