@@ -1,28 +1,48 @@
+/************************
+ *  SET UP BLOCK START  *
+ ************************/
+
 var sqlite3 = require('sqlite3').verbose();
 const currgen=5;
 var db = new sqlite3.Database('slackbotDatabase.db');
+
+//Prepare SQL statements and store them in memory
 var newUser = db.prepare(`INSERT INTO USERS (slackID, WINS, LOSSES, CRABNAME, CRABLVL, CRABEXP, CRABHPS, CRABSTR, CRABDEF, CRABDEX, CRABSPD, CRABNATURE, ELO, SKILLPOINTS, GENERATION) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, ${currgen})`);
 var checkIfUser = db.prepare("SELECT COUNT(1) FROM USERS WHERE slackID = UPPER(?)");
 var getUser = db.prepare("SELECT * FROM USERS WHERE slackID = UPPER(?)");
 var updateLevel = db.prepare("UPDATE USERS SET CRABLVL = CRABLVL + 1 WHERE  slackID = UPPER(?)");
 var checkIfUpdate = db.prepare(`SELECT COUNT(1) FROM USERS WHERE slackID = UPPER(?) AND GENERATION=${currgen}`);
+
+//Creates a function that will prepare a new SQL query to be run immediately.
 var updateStuff = (Arr) => {
     return db.prepare(`UPDATE USERS SET ${sqlOutput(Arr)} WHERE slackID=?`);
 };
+
+//Takes in a 2D array and creates an SQL string to output
+var sqlOutput = (Arr) => {
+    let p = "";
+    while (Arr.length > 1) {
+      p += `${Arr[0][0]} = ${Arr[0][1]}, `
+      Arr.shift();
+    }
+    p += `${Arr[0][0]} = ${Arr[0][1]}`;
+    return p;
+  };
 
 //Import supplementary files
 const names = require("./names");
 const accCurves = require("./accuracyCurves");
 const npc = require("./npcs");
-const npcList = ["baby", "easy", "medium", "hard", "boss", "superboss", "hyperboss"];
 
 //used for verifying if slackID is valid
 const re = new RegExp("(?<=^ub[0-9])[a-zA-Z0-9]{6}$", "gi");
 
-//Crab's initial stat distribution
+//Initialize arrays to store in memory for later retrieval
 const initialStats = [7, 6, 5, 3];
 const natures = ["reckless", "serious", "calm"];
 const statNames = ["CRABHPS", "CRABSTR", "CRABDEF", "CRABDEX", "CRABSPD"];
+const npcList = ["baby", "easy", "medium", "hard", "boss", "superboss", "hyperboss"];
+
 //Logic Functions that might or might not be useful later;
 const logic = {
     NAND: (a, b) => {
@@ -37,30 +57,24 @@ const logic = {
 };
 //Logic functions that apply to arrays
 const mLogic = {
-    //Returns true if all are true. Revert to find if at least one is false
     AND: (Arr) => {
         return Arr.reduce((a, b) => a && b, true);
     },
-    //Returns true if at least one is true. Revert to find if all are false
     OR: (Arr) => {
         return Arr.reduce((a, b) => a || b, false);
     },
-    //Returns true if all elements are equal
     equals: (Arr) => {
       return Arr.every(a => a==Arr[0]);
     },
 };
 
-//Takes in a 2D array and creates an SQL string to output
-var sqlOutput = (Arr) => {
-  let p = "";
-  while (Arr.length > 1) {
-    p += `${Arr[0][0]} = ${Arr[0][1]}, `
-    Arr.shift();
-  }
-  p += `${Arr[0][0]} = ${Arr[0][1]}`;
-  return p;
-};
+/************************
+ *   SET UP BLOCK END   *
+ ************************/
+
+/************************
+ * FUNCTION BLOCK START *
+ ************************/
 
 //We'll define a new sqlite function that works as a promise. Because despite being a local database, db.get is still an async function. That is, it will not retrieve the value before the next line of code is executed. To prevent this, we establish it as a promise and give it a resolve and reject condition to allow for our callbacks to be put into a more appropriate form.
 db.getAsync = function (sql, param) {
@@ -113,6 +127,14 @@ checkIfValidID = (suspectedID) => {
     
     return suspectedID.match(re);
 };
+
+/************************
+ *  FUNCTION BLOCK END  *
+ ************************/
+
+ /************************
+ *  COMMAND BLOCK START  *
+ ************************/
 
 registerCommand = (msg) => {
     checkIfUserAndExecutePromise(msg.user).then(user => {
@@ -198,6 +220,7 @@ updateCrab = (userObj) => {
 
 battleCrabCommand = (msg, user2ID) => {
     var botCrab = "";
+    //Check if the userID is a bot, and if not check if it's a valid ID
     if (npcList.includes(user2ID)){
         botCrab = npc[user2ID];
     } else if (!checkIfValidID(user2ID)){
@@ -205,11 +228,13 @@ battleCrabCommand = (msg, user2ID) => {
         return;
     }
 
+    //Prevent the user from battling themselves for easy experience
     if (msg.user.toUpperCase() == user2ID.toUpperCase()){
         send(`You can't battle yourself, <@${msg.user}>`, msg.channel);
         return;
     }
 
+    //Begin the super promise chain.
     Promise.all([db.getAsync(checkIfUpdate.sql, msg.user), db.getAsync(checkIfUpdate.sql, user2ID)])
 
     .then(results => {
@@ -244,11 +269,14 @@ battleCrabCommand = (msg, user2ID) => {
     .catch(err => console.error(err));
 };
 
+/****************************
+ *  BATTLE MINIBLOCK START  *
+ ***************************/
 battleCrabs = (msg, arr) => {
     let first, second;
     do{
       let flip = Math.random();
-
+        //Determine which crab goes first
       if (arr[0].CRABSPD > arr[1].CRABSPD) {
         first = arr[0];
         second = arr[1];
@@ -259,11 +287,13 @@ battleCrabs = (msg, arr) => {
         first = arr[Math.floor(flip * 2)];
         second = arr[(Math.floor(flip * 2) + 1) % 2];
       }
-
+      //First damage phase
       [first, second] = damagePhase(msg, first, second);
       if (second.CRABHPS <= 0) {
         return [first, second];
       }
+
+      //Second damage phase
       [second, first] = damagePhase(msg, second, first);
       if (first.CRABHPS <= 0) {
         return [first, second];
@@ -271,6 +301,7 @@ battleCrabs = (msg, arr) => {
     } while(first.CRABHPS > 0 && second.CRABHPS >0);
 };
 
+//Controls the damage phase
 damagePhase = (msg, attacker, defender) => {
     acc = accuracy(attacker.CRABDEX, attacker.CRABNATURE);
     dmg = (damage(attacker.CRABSTR, defender.CRABDEF));
@@ -286,6 +317,7 @@ damagePhase = (msg, attacker, defender) => {
     return [attacker, defender];
 };
 
+//Controls the entire experience phase
 experiencePhase = (msg, winner, loser) => {
     let xp = experienceGain(winner, loser);
     if (xp + winner.CRABEXP >= (winner.CRABLVL + 1) ** 3){
@@ -310,7 +342,7 @@ accuracy = (dex, nature) => {
 damage = (attack, defense) => {
     return (((attack/2.5) ** 2) / defense)+1;
 };
-//Calculates XP gained
+//Calculates experienced gained
 experienceGain = (winner, loser) => {
     let winstats = totalStats(winner);
     let losestats = totalStats(loser);
@@ -321,6 +353,18 @@ experienceGain = (winner, loser) => {
 totalStats = (crab) => {
     return [...statNames].reduce((a, b) => a+crab[b], 0);
 };
+
+/****************************
+ *   BATTLE MINIBLOCK END   *
+ ***************************/
+
+ /************************
+ *   COMMAND BLOCK END   *
+ ************************/
+
+ /************************
+ *     EXPORT BLOCK      *
+ ************************/
 
 exports.registerCommand = registerCommand;
 exports.helpCommand = helpCommand;
